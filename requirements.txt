@@ -1,0 +1,38 @@
+# ════════════════════════════════════════════════════
+# NexSight AI — Requirements
+# Microsoft Build AI Hackathon 2025
+# ════════════════════════════════════════════════════
+
+# ── Web Framework ──────────────────────────────────
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+python-multipart==0.0.9
+python-dotenv==1.0.1
+aiofiles==24.1.0
+
+# ── Data Processing ────────────────────────────────
+pandas==2.2.2
+numpy==1.26.4
+scipy==1.13.1
+
+# ── Machine Learning ───────────────────────────────
+scikit-learn==1.5.1
+xgboost==2.1.0
+lightgbm==4.4.0
+
+# ── Computer Vision ────────────────────────────────
+Pillow==10.4.0
+opencv-python-headless==4.10.0.84
+
+# ── Explainable AI ─────────────────────────────────
+shap==0.45.1
+matplotlib==3.9.1
+
+# ── Visualization ──────────────────────────────────
+plotly==5.22.0
+
+# ── Utilities ──────────────────────────────────────
+joblib==1.4.2
+tqdm==4.66.4
+pydantic==2.8.0
+httpx==0.27.0
