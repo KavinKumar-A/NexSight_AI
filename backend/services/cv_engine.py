@@ -30,6 +30,13 @@ except ImportError:
     TORCH_AVAILABLE = False
     print("[WARN] PyTorch not available. CV engine will use fallback mode.")
 
+    # Shim so the PCBDefectNet class definition still imports without torch.
+    # The class body is only executed if it is instantiated, which only
+    # happens when torch is present, so these placeholders are never called.
+    class _NNShim:
+        Module = object
+    nn = _NNShim()
+
 
 # ── CNN Model Architecture ─────────────────────────────────
 
@@ -191,9 +198,12 @@ class CVEngine:
 
         analysis_time = (time.time() - start_time) * 1000
 
-        # Calculate quality score (100 = perfect, lower = worse)
-        quality_score = max(0, 100 - len(analyzed_defects) * 12 -
-                          sum(1 for d in analyzed_defects if d["severity"] in ["high", "critical"]) * 8)
+        # Calculate quality score (100 = perfect, lower = worse).
+        # Reciprocal decay keeps the score meaningful even for heavily-defective
+        # boards instead of collapsing to 0 once a few defects are present.
+        n = len(analyzed_defects)
+        severe = sum(1 for d in analyzed_defects if d["severity"] in ["high", "critical"])
+        quality_score = max(5.0, 100.0 / (1 + 0.12 * n + 0.08 * severe))
 
         return {
             "image_id": Path(image_path).stem,
@@ -309,10 +319,16 @@ class CVEngine:
     def _get_annotation_path(self, image_path: str) -> str:
         """Convert image path to annotation path."""
         p = Path(image_path)
-        # DeepPCB format: groupXXXXX/XXXXX/XXXXX000.jpg → groupXXXXX/XXXXX_not/XXXXX000.txt
+        # DeepPCB format: groupXXXXX/XXXXX/XXXXX000_test.jpg → groupXXXXX/XXXXX_not/XXXXX000.txt
+        # Image stems carry a _test/_temp suffix that the annotation files do not.
         parent_name = p.parent.name
         annot_dir = p.parent.parent / f"{parent_name}_not"
-        return str(annot_dir / p.with_suffix(".txt").name)
+        stem = p.stem
+        for suffix in ("_test", "_temp"):
+            if stem.endswith(suffix):
+                stem = stem[: -len(suffix)]
+                break
+        return str(annot_dir / f"{stem}.txt")
 
     def _parse_annotations(self, annot_path: str) -> List[Dict]:
         """Parse annotation file."""
@@ -359,7 +375,8 @@ class CVEngine:
             if "_not" in root:
                 continue
             for fname in filenames:
-                if Path(fname).suffix.lower() in extensions:
+                # Only the *_test images carry defects; *_temp are defect-free templates.
+                if Path(fname).suffix.lower() in extensions and Path(fname).stem.endswith("_test"):
                     files.append(Path(root) / fname)
                     if len(files) >= max_files:
                         return files
